@@ -186,58 +186,176 @@ async def orion_subscripton():
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/notifyCO", summary="🌐 Encaminha valor corrigido para Orion CB", tags=['Notification'])
-async def co_prediction(lora_device: str):
-    #SensorCvel (testes notebook)
-    
-    async with httpx.AsyncClient() as client:
-        # Faz a requisição GET à entidade no Orion CB
-        url = f"http://{DOCKER_HOST}:1026/v2/entities/{lora_device}"
-        headers = {
-            "Accept": "application/json",
-            "Fiware-Service": "openiot",
-            "Fiware-ServicePath": "/airQuality"
-        }
-        response = await client.get(url, headers=headers)
-        response.raise_for_status()
-        body = response.json()
-    
-    
-    #Extração do JSON Orion
-    #print(body)
+@app.post(
+    "/notifyCO",
+    summary="🤖 Recebe atualização Orion e calcula CO corrigido",
+    tags=['Notification']
+)
+async def co_prediction(notification: dict):
 
-    #retirada dos campos necessarios
-    #caso não tenha o campo, retorna 0.0
-    e2sp_co = body.get("Best_CO", {}).get("value", 0.0)
-    e2sp_co_we = body.get("CO_WE", {}).get("value", 0.0)
-    e2sp_co_ae = body.get("CO_AE", {}).get("value", 0.0)
-    e2sp_temp = body.get("Temperatura", {}).get("value", 0.0)
-    pin_umid = body.get("Umidade", {}).get("value", 0.0)
+    print("\n===== NOTIFICAÇÃO ORION =====")
+    print(json.dumps(notification, indent=4))
 
-    entrada = pd.DataFrame([[e2sp_co, e2sp_co_we, e2sp_co_ae, e2sp_temp, pin_umid]],columns=['e2sp_co', 'e2sp_co_we', 'e2sp_co_ae', 
-    'e2sp_temp', 'pin_umid'])
-    #predição!!!
-    resultado = modelo.predict(entrada)
-    #corpo para atualizar lá no patch
-    payload_CO = {
+
+    try:
+
+        # Orion envia lista de entidades
+        entity = notification["data"][0]
+
+
+        entity_id = entity["id"]
+
+
+        # Recupera valores enviados pelo Orion
+
+        e2sp_co = entity.get(
+            "Best_CO",
+            {}
+        ).get(
+            "value",
+            0.0
+        )
+
+
+        e2sp_co_we = entity.get(
+            "CO_WE",
+            {}
+        ).get(
+            "value",
+            0.0
+        )
+
+
+        e2sp_co_ae = entity.get(
+            "CO_AE",
+            {}
+        ).get(
+            "value",
+            0.0
+        )
+
+
+        e2sp_temp = entity.get(
+            "Temperatura",
+            {}
+        ).get(
+            "value",
+            0.0
+        )
+
+
+        pin_umid = entity.get(
+            "Umidade",
+            {}
+        ).get(
+            "value",
+            0.0
+        )
+
+
+
+        entrada = pd.DataFrame(
+            [[
+                e2sp_co,
+                e2sp_co_we,
+                e2sp_co_ae,
+                e2sp_temp,
+                pin_umid
+            ]],
+            columns=[
+                'e2sp_co',
+                'e2sp_co_we',
+                'e2sp_co_ae',
+                'e2sp_temp',
+                'pin_umid'
+            ]
+        )
+
+
+        resultado = modelo.predict(entrada)
+
+
+        co_corrigido = round(
+            float(resultado[0]),
+            6
+        )
+
+
+        print(
+            f"CO corrigido calculado: {co_corrigido}"
+        )
+
+
+
+        # Atualiza Orion
+
+        url = (
+            f"{ORION_ENTITIES_URL}"
+            f"{entity_id}/attrs"
+        )
+
+
+        payload = {
+
             "CO_Corrigido": {
-                "type": "Number",
-                "value": round(float(resultado[0]), 6)  #valor resposta do modelo
+
+                "type":"Number",
+
+                "value":co_corrigido
+
             }
-    }
-    
-    async with httpx.AsyncClient() as client:
-        linha_req = f"http://{DOCKER_HOST}:1026/v2/entities/{lora_device}/attrs"
-        response = await client.patch(linha_req, json=payload_CO, headers={
-            "Content-Type": "application/json",
-            "Fiware-Service": "openiot",
-            "Fiware-ServicePath": "/airQuality"
-    })
-    print(response.text)
-    response.raise_for_status()
 
-    return {
-        "status": "Atualizado no Orion CB!",
-        "co_corrigido": round(float(resultado[0]), 6)
-    }
+        }
 
+
+
+        async with httpx.AsyncClient() as client:
+
+            response = await client.patch(
+                url,
+                json=payload,
+                headers=ORION_HEADERS
+            )
+
+            if response.status_code == 422:
+                print(
+                    "CO_Corrigido não existe. "
+                    "Criando atributo no Orion..."
+                )
+
+                response = await client.post(
+                    url,
+                    json=payload,
+                    headers=ORION_HEADERS
+                )
+
+            response.raise_for_status()
+
+
+
+        return {
+
+            "status":"OK",
+
+            "entity":entity_id,
+
+            "CO_Corrigido":co_corrigido
+
+        }
+
+
+
+    except Exception as e:
+
+        print(
+            "Erro no processamento:",
+            e
+        )
+
+        raise HTTPException(
+
+            status_code=500,
+
+            detail=str(e)
+
+        )

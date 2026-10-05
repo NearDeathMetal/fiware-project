@@ -1,4 +1,17 @@
-venv
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+*.pyo
+.env
+.env.*
+!.env.example
+*.bak
+*.log
+
 docker/config
 docker/data
 docker/log
+
+# Datasets locais grandes
+ml/app/envcity_aqm_df.csv
