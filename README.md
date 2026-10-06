@@ -1,649 +1,1368 @@
-<h1 align="center">
-  <img src="https://www.fiware.org/custom/brand-guide/img/logo/fiware/secondary/png/logo-fiware-secondary.png" width="200" style="margin-right: 60px;"/>
+# 🌐 Integração entre dispositivos LoRaWAN e a plataforma FIWARE
+
+<p align="center">
+  <img src="https://www.fiware.org/custom/brand-guide/img/logo/fiware/secondary/png/logo-fiware-secondary.png" width="200"/>
   <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/1/13/LoRaWAN_Logo.svg/2560px-LoRaWAN_Logo.svg.png" alt="LoRaWAN Logo" width="300"/>
-  <!--<img src="https://www.thethingsindustries.com/docs/img/TTS-logo.svg" alt="The Things Stack Logo" width="300" style="margin-left: 60px; margin-top: 69px; vertical-align: top;"/> -->
-</h1>
+</p>
 
-## Integração entre dispostivos LoraWAN e Plataforma aberta Fiware
+## 📖 Sobre este Guia
 
-<!-- Descrição -->
+Este projeto apresenta uma arquitetura para integração de dispositivos **LoRaWAN** com a plataforma aberta **FIWARE**, permitindo receber, gerenciar, persistir e visualizar dados provenientes de dispositivos IoT.
 
-Este tutorial mostra como integrar sua solução IoT que utiliza o protocolo [LoRaWAN](https://lora-alliance.org/) com os componentes da plataforma FIWARE, voltada para Cidades Inteligentes. A solução proposta inclui a conexão com a plataforma [The Things Network (TTN)](https://www.thethingsindustries.com/stack/) para recebimento dos dados e a execução dos serviços Fiware em contêineres, permitindo sua implantação em ambientes de nuvem. Como exemplo, utilizamos uma estação de monitoramento da qualidade do ar equipada com sensores de baixo custo e demonstramos como o Fiware pode ser aplicado para armazenar, processar e visualizar os dados coletados por essa estação.
+A solução utiliza o **The Things Stack (TTN)** como servidor de aplicação LoRaWAN e integra seus dados aos componentes FIWARE executados em contêineres Docker.
 
--   Acess in English: [ReadmeEN.md](EN-README.md)
+Como exemplo, o projeto utiliza uma aplicação de monitoramento da qualidade do ar.
 
-## Capítulos
+A arquitetura também disponibiliza um **Módulo de Inteligência Artificial (IA) opcional**, responsável por processar determinados dados recebidos pelo FIWARE e produzir uma nova informação calculada por um modelo de Machine Learning.
 
-<details>
-<summary><strong>Tópicos</strong></summary>
+> [!IMPORTANTE]
+> **O Módulo de IA é opcional.**
+>
+> A integração básica **FIWARE + LoRaWAN + TTN + persistência + Grafana funciona independentemente do módulo de IA**.
+>
+> Portanto, quem deseja apenas receber, gerenciar, armazenar e visualizar os dados dos dispositivos IoT pode seguir somente as etapas principais deste Guia e ignorar a seção **🤖 Módulo Opcional de Inteligência Artificial**.
 
-- [📌 Contextualização](#-contextualização)
-- [🏗️ Arquitetura do Projeto](#️-arquitetura-do-projeto)
-  - [🧠 Gerenciadores de Contexto (2)](#-gerenciadores-de-contexto-2)
-  - [🤖 Agente IoT teste](#-agente-iot-teste)
-  - [🗃️ Bancos de Dados (2)](#️-bancos-de-dados-2)
-  - [📈 Plataforma de Visualização](#-plataforma-de-visualização)
-  - [Ferramenta de visualização de dados que se conecta ao banco **PostgreSQL** para exibir gráficos, painéis e indicadores com base nas informações coletadas pela estação de monitoramento da qualidade do ar.](#ferramenta-de-visualização-de-dados-que-se-conecta-ao-banco-postgresql-para-exibir-gráficos-painéis-e-indicadores-com-base-nas-informações-coletadas-pela-estação-de-monitoramento-da-qualidade-do-ar)
-  - [🗺️ Diagrama da Arquitetura](#️-diagrama-da-arquitetura)
-- [Pré-requisitos](#pré-requisitos)
-  - [🐳 Docker e Docker Compose](#-docker-e-docker-compose)
-    - [🔧 Instalação do Docker](#-instalação-do-docker)
-    - [📦 Docker Compose](#-docker-compose)
-    - [✅ Verificação de versões](#-verificação-de-versões)
-  - [💻 Requisito para Windows: WSL 2](#-requisito-para-windows-wsl-2)
-  - [🌐 Conta e Dispositivo Registrado na TTN ou ChirpStack](#-conta-e-dispositivo-registrado-na-ttn-ou-chirpstack)
-- [🧱 Iniciando o Projeto - Configuração TTN](#-iniciando-o-projeto---configuração-ttn)
-  - [Requisitos para a conexão entre o IoT Agent e Orion Context Broker - The Things Stack](#requisitos-para-a-conexão-entre-o-iot-agent-e-orion-context-broker---the-things-stack)
-    - [🔧 Configuraando informações](#-configuraando-informações)
-    - [⚠️ Segurança](#️-segurança)
-  - [📌 Localizando informações da Aplicação e do Dispositivo](#-localizando-informações-da-aplicação-e-do-dispositivo)
-  - [🔗 Configuração do MQTT](#-configuração-do-mqtt)
-  - [📤 Registro do Dispositivo no IoT Agent](#-registro-do-dispositivo-no-iot-agent)
-  - [🚀 Execução](#-execução)
-- [📦 Configurando a persistência de dados - Cygnus/PostgresSQL](#-configurando-a-persistência-de-dados---cygnuspostgressql)
-  - [🛠️ Etapas da Persistência](#️-etapas-da-persistência)
-    - [📩 1. Criar a Inscrição (Subscription)](#-1-criar-a-inscrição-subscription)
-    - [🔑 *Parâmetros-chave*:](#-parâmetros-chave)
-      - [🧪 Exemplo de requisição:](#-exemplo-de-requisição)
-    - [🚀 🧰 Execução via Script bash](#--execução-via-script-bash)
-    - [🔍 Verificar inscrições ativas](#-verificar-inscrições-ativas)
-  - [PostgreSQL: Leitura de Dados](#postgresql-leitura-de-dados)
-    - [🧑‍💻 Acessar o banco via terminal](#-acessar-o-banco-via-terminal)
-    - [📋 Ver banco de dados disponíveis](#-ver-banco-de-dados-disponíveis)
-    - [📚 Listar tabelas no schema `openiot`](#-listar-tabelas-no-schema-openiot)
-    - [🔎 Consultar dados da tabela](#-consultar-dados-da-tabela)
-    - [🔎 Filtrar por atributo específico](#-filtrar-por-atributo-específico)
-- [📊 Grafana - Visualização de dados persistidos](#-grafana---visualização-de-dados-persistidos)
-  - [🌐 Acesso ao Grafana](#-acesso-ao-grafana)
-  - [Adicionando uma Fonte de Dados PostgreSQL](#adicionando-uma-fonte-de-dados-postgresql)
-    - [📥 Preencha os campos:](#-preencha-os-campos)
-  - [Criando um Dashboard com Consulta SQL](#criando-um-dashboard-com-consulta-sql)
-    - [Atenção!](#atenção)
-  - [🧠 Considerações Finais](#-considerações-finais)
-    - [📚 Referências Recomendadas](#-referências-recomendadas)
-  - [🤝 Comunidade e Colaboração](#-comunidade-e-colaboração)
+---
 
+# 📚 Sumário
 
-</details>
+* [📌 Contextualização](#-contextualização)
+* [🏗️ Arquitetura do Projeto](#️-arquitetura-do-projeto)
+
+  * [Orion Context Broker](#orion-context-broker)
+  * [IoT Agent LoRaWAN](#iot-agent-lorawan)
+  * [MongoDB](#mongodb)
+  * [Cygnus](#cygnus)
+  * [PostgreSQL](#postgresql)
+  * [Grafana](#grafana)
+  * [Módulo de IA opcional](#módulo-de-ia-opcional)
+* [🔧 Pré-requisitos](#-pré-requisitos)
+
+  * [Docker e Docker Compose](#docker-e-docker-compose)
+  * [TTN](#ttn)
+* [🚀 Instalação do Projeto](#-instalação-do-projeto)
+* [🔐 Configuração das variáveis de ambiente](#-configuração-das-variáveis-de-ambiente)
+* [📡 Configuração da aplicação LoRaWAN no TTN](#-configuração-da-aplicação-lorawan-no-ttn)
+* [📤 Registro do dispositivo no IoT Agent](#-registro-do-dispositivo-no-iot-agent)
+* [🔄 Fluxo dos dados](#-fluxo-dos-dados)
+* [📦 Persistência com Cygnus e PostgreSQL](#-persistência-com-cygnus-e-postgresql)
+* [📊 Visualização com Grafana](#-visualização-com-grafana)
+* [🤖 Módulo Opcional de Inteligência Artificial](#-módulo-opcional-de-inteligência-artificial)
+
+  * [Objetivo](#objetivo)
+  * [Arquitetura da IA](#arquitetura-da-ia)
+  * [Estrutura do módulo](#estrutura-do-módulo)
+  * [Modelo de Machine Learning](#modelo-de-machine-learning)
+  * [Construção da imagem Docker](#construção-da-imagem-docker)
+  * [Inicialização do serviço](#inicialização-do-serviço)
+  * [Subscription do Orion](#subscription-do-orion)
+  * [Fluxo de processamento](#fluxo-de-processamento)
+  * [Validação](#validação)
+* [🧪 Verificação e diagnóstico](#-verificação-e-diagnóstico)
+* [🔒 Segurança](#-segurança)
+* [🧠 Considerações finais](#-considerações-finais)
+
+---
 
 # 📌 Contextualização
 
-O ecossistema **FIWARE** (Cirillo et al., 2019), desenvolvido pela Comissão Europeia, tem como principal objetivo utilizar dados para otimizar a eficiência e a gestão de serviços em diversas áreas. A plataforma adota padrões abertos para coleta, armazenamento e publicação de dados, destacando-se o conceito de **dados de contexto**, que representam o estado atual de entidades como sensores, aplicações em tempo real e outros dispositivos.
+O **FIWARE** é uma plataforma aberta voltada ao desenvolvimento de aplicações inteligentes baseadas em dados de contexto.
 
-<p align="center">
-  <img src="https://camo.githubusercontent.com/20338462f869e22f514eb10d83325e840c9d68396b336be8e6680d8e453eacda/68747470733a2f2f6669776172652e6769746875622e696f2f636174616c6f6775652f696d672f636174616c6f6775652e706e67" alt="FIWARE Monitor" width="550">
-</p>
+Neste projeto, o FIWARE funciona como camada intermediária entre os dispositivos IoT e as aplicações responsáveis por persistência, visualização e processamento.
+
+Os dispositivos utilizam **LoRaWAN** para transmitir suas informações.
+
+O **The Things Stack** recebe os dados da rede LoRaWAN e disponibiliza essas informações por meio de sua camada de aplicação.
+
+O **IoT Agent LoRaWAN** recebe esses dados e os converte para o modelo utilizado pelo **Orion Context Broker**.
+
+O Orion passa então a gerenciar as entidades e seus atributos de contexto.
+
+A partir desse ponto, diferentes componentes podem consumir os dados, como:
+
+* Cygnus;
+* PostgreSQL;
+* Grafana;
+* aplicações externas;
+* APIs;
+* módulos de Machine Learning;
+* sistemas de análise e tomada de decisão.
 
 ---
 
 # 🏗️ Arquitetura do Projeto
 
-Dentro do vasto [**catálogo**](https://www.fiware.org/catalogue/) de ferramentas do FIWARE, os componentes são organizados em cinco categorias principais:
+A arquitetura principal pode ser representada da seguinte forma:
 
-- ⚙️ Deployment  
-- 🧠 Gerenciamento de Contexto  
-- 🧮 Processamento  
-- 📊 Análise e Monitoramento de Contexto  
-- 🌐 Interface para IoT e Robótica
 
-Para este projeto, foram utilizados os seguintes componentes:
 
----
 
-## 🧠 Gerenciadores de Contexto (2)
+O módulo de IA não interfere no caminho principal dos dados.
 
-- [**Orion Context Broker**](https://fiware-orion.readthedocs.io/en/latest/):  
-  Responsável por receber e gerenciar dados de contexto por meio da API [NGSI-v2](https://fiware.github.io/specifications/OpenAPI/ngsiv2).
-
-- [**Cygnus**](https://fiware-cygnus.readthedocs.io/en/latest/):  
-  Atua como conector para persistência dos dados, inscrevendo-se nas alterações de contexto e armazenando os dados em um banco relacional ou NoSQL (MySQL, PostgreSQL ou MongoDB).
+Ele funciona como um **consumidor adicional das informações disponibilizadas pelo Orion Context Broker**.
 
 ---
 
-## 🤖 Agente IoT teste
+## 🧠 Orion Context Broker
 
-- [**IoT Agent LoRaWAN**](https://fiware-lorawan.readthedocs.io/en/latest/):  
-  Responsável por integrar dispositivos LoRaWAN ao ecossistema FIWARE. Ele atua como intermediário entre a plataforma **The Things Stack (TTS)** e o **Orion Context Broker**, convertendo os dados recebidos em formato compatível com NGSI para posterior processamento e armazenamento.
+O **Orion Context Broker** é o componente responsável pelo gerenciamento das informações de contexto.
+
+Neste projeto, ele recebe as atualizações provenientes do IoT Agent LoRaWAN e mantém as entidades IoT.
+
+Exemplo conceitual:
+
+```json
+{
+  "id": "SensorCvel",
+  "type": "LoraDevice",
+  "Best_CO": {
+    "type": "Float",
+    "value": 50
+  },
+  "Temperatura": {
+    "type": "Float",
+    "value": 32
+  },
+  "Umidade": {
+    "type": "Float",
+    "value": 75
+  }
+}
+```
+
+O Orion também permite criar **Subscriptions**, possibilitando que outros serviços sejam notificados quando determinadas informações de contexto forem alteradas.
+
+Essa funcionalidade é utilizada tanto pelo Cygnus quanto pelo módulo opcional de IA.
 
 ---
 
-## 🗃️ Bancos de Dados (2)
+## 🤖 IoT Agent LoRaWAN
 
-- [**MongoDB**](https://www.mongodb.com/):  
-  - Usado pelo **Orion Context Broker** para armazenar entidades, inscrições e registros.  
-  - Também utilizado pelo **IoT Agent** para guardar informações de dispositivos, como chaves, identificadores e configurações.
+O **IoT Agent LoRaWAN** é responsável pela integração entre o servidor LoRaWAN e o FIWARE.
 
-- [**PostgreSQL**](https://www.postgresql.org/):  
-  - Funciona como destino (**data sink**) para os dados persistidos pelo **Cygnus**.
+Seu papel é:
 
----
+1. receber dados provenientes do servidor LoRaWAN;
+2. interpretar as informações do dispositivo;
+3. associar os dados a uma entidade FIWARE;
+4. atualizar o Orion Context Broker.
 
-## 📈 Plataforma de Visualização
-
-- [**Grafana**](https://grafana.com/):  
-  Ferramenta de visualização de dados que se conecta ao banco **PostgreSQL** para exibir gráficos, painéis e indicadores com base nas informações coletadas pela estação de monitoramento da qualidade do ar.
----
-
-## 🗺️ Diagrama da Arquitetura
-
-![Diagrama da Arquitetura](/docs/img/Diagrama_ic.png)
+O dispositivo é registrado por meio da API do IoT Agent.
 
 ---
 
-# Pré-requisitos
+## 🗃️ MongoDB
+
+O MongoDB é utilizado pelos componentes FIWARE para armazenamento interno.
+
+Neste projeto ele é utilizado pelo Orion Context Broker e pelo IoT Agent para manter informações necessárias ao funcionamento desses serviços.
+
+---
+
+## 📦 Cygnus
+
+O **Cygnus** funciona como um conector entre o Orion Context Broker e sistemas de persistência.
+
+Neste projeto, ele recebe notificações do Orion e envia os dados para o PostgreSQL.
+
+---
+
+## 🐘 PostgreSQL
+
+O PostgreSQL funciona como banco de dados histórico.
+
+Enquanto o Orion mantém o estado atual das entidades, o PostgreSQL permite armazenar o histórico das informações recebidas.
+
+---
+
+## 📊 Grafana
+
+O Grafana é utilizado para visualizar os dados persistidos no PostgreSQL.
+
+É possível criar dashboards com gráficos de:
+
+* temperatura;
+* umidade;
+* CO;
+* NO₂;
+* SO₂;
+* OX;
+* outros atributos disponibilizados pelo dispositivo.
+
+---
+
+## 🤖 Módulo de IA opcional
+
+O módulo de IA é uma camada adicional da arquitetura.
+
+Ele não é necessário para:
+
+* receber dados LoRaWAN;
+* utilizar o Orion;
+* persistir dados;
+* utilizar PostgreSQL;
+* criar dashboards no Grafana.
+
+Sua finalidade é permitir processamento inteligente dos dados recebidos pelo Orion.
+
+No exemplo implementado neste projeto, o modelo de Machine Learning recebe informações relacionadas à concentração de CO, temperatura e umidade e produz o atributo:
+
+```text
+CO_Corrigido
+```
+
+---
+
+# 🔧 Pré-requisitos
 
 ## 🐳 Docker e Docker Compose
 
-Todos os componentes deste projeto serão executados com contâiners [Docker](https://www.docker.com), que permite isolar diferentes serviços em ambientes independentes.
+Todos os serviços principais são executados utilizando Docker.
 
-### 🔧 Instalação do Docker
-
-- **Windows**: [Instruções oficiais](https://docs.docker.com/docker-for-windows/)  
-- **macOS**: [Instruções oficiais](https://docs.docker.com/docker-for-mac/)  
-- **Linux**: [Instruções oficiais](https://docs.docker.com/install/)
-
-### 📦 Docker Compose
-
-[Docker Compose](https://docs.docker.com/compose/) permite definir e executar múltiplos contêineres com um único comando via arquivos `docker-compose.yml`.  
-- ⚠️ Já vem instalado no Docker Desktop (Windows/macOS). No Linux, siga [estas instruções](https://docs.docker.com/compose/install/).
-
-### ✅ Verificação de versões
-
-Use os comandos abaixo para checar se as versões estão atualizadas:
+Verifique a instalação:
 
 ```bash
 docker version
 docker compose version
 ```
 
-Recomendado: Docker 24.0.x ou superior e Docker Compose 2.24.x ou superior.
+O Docker Compose deve estar disponível como:
 
-## 💻 Requisito para Windows: WSL 2
-
-Se estiver usando Windows, é necessário ativar o WSL 2 [(Windows Subsystem for Linux)](https://learn.microsoft.com/en-us/windows/wsl/install) para compatibilidade total com o Docker Desktop.
-🔧 Como instalar o WSL 2
-
-Abra o terminal do Windows PowerShell como administrador e execute o comando:
-```cmd
-wsl --install
+```bash
+docker compose
 ```
-Reinicie o computador, se solicitado e verifique a versão ativa com:
-```cmd
-wsl --list --verbose
+
+> [!NOTE]
+> Este projeto utiliza **Docker Engine + Docker Compose**. Não é necessário utilizar Docker Desktop em ambientes Linux.
+
+---
+
+## 🌐 Conta no The Things Stack
+
+Para utilizar o exemplo com TTN, é necessário possuir:
+
+* uma conta no The Things Stack;
+* uma Application;
+* um End Device;
+* uma configuração LoRaWAN funcional;
+* uma API Key apropriada;
+* acesso às informações MQTT da aplicação.
+
+O The Things Stack disponibiliza os dados da camada de aplicação por MQTT e utiliza API Keys para autenticação.
+
+---
+
+# 🚀 Instalação do Projeto
+
+Clone o repositório:
+
+```bash
+git clone https://github.com/NearDeathMetal/fiware-project.git
+```
+
+Entre no projeto:
+
+```bash
+cd fiware-project
+```
+
+A estrutura principal é:
+
+```text
+fiware-project/
+├── docker/
+├── ml/
+├── scripts/
+├── datasets/
+├── .env.example
+├── .gitignore
+└── README.md
 ```
 
 ---
 
-## 🌐 Conta e Dispositivo Registrado na TTN ou ChirpStack
+# 🔐 Configuração das variáveis de ambiente
 
-> **Atenção:** Este tutorial assume que sua solução IoT já está registrada em uma rede LoRaWAN compatível.
+O projeto disponibiliza o arquivo:
 
-Recomenda-se utilizar a plataforma [**The Things Stack** (TTN)](https://www.thethingsindustries.com/stack/), onde sua **Application** e seu **End Device** devem estar devidamente cadastrados em sua conta pessoal.
+```text
+.env.example
+```
 
-Caso ainda não possua uma conta na TTN, este tutorial também é compatível com a plataforma [**ChirpStack**](https://www.chirpstack.io/), uma alternativa open source para redes LoRaWAN privadas.
+Crie sua configuração local:
 
-Ambas as plataformas permitem o uso dos seguintes **modelos de codificação de payload**, suportados pelo IoT Agent LoRaWAN:
+```bash
+cp .env.example .env
+```
 
-- **[CayenneLPP (Low Power Payload)](https://developers.mydevices.com/cayenne/docs/lora/#lora-cayenne-low-power-payload)** – Formato padrão para sensores com suporte a diversos tipos de dados (temperatura, umidade, GPS, etc.), fácil de usar e interpretar.
-- **[CBOR (Concise Binary Object Representation)](https://cbor.io/)** – Formato binário mais compacto e flexível, ideal para dispositivos com restrições de largura de banda e energia.
+Edite:
+
+```bash
+nano .env
+```
+
+### Descrição das principais variáveis
+
+| Variável              | Finalidade                                     |
+| --------------------- | ---------------------------------------------- |
+| `SERVICE_PATH`        | Caminho FIWARE utilizado no Orion              |
+| `ENTITY_NAME`         | Nome da entidade criada no Orion               |
+| `DEVICE_ID`           | Identificador do dispositivo                   |
+| `APP_EUI`             | Identificador da aplicação LoRaWAN             |
+| `DEV_EUI`             | Identificador do dispositivo                   |
+| `APPLICATION_ID`      | Identificador da aplicação no TTN              |
+| `APPLICATION_KEY`     | Chave utilizada na configuração do dispositivo |
+| `APP_SERVER_HOST`     | Endereço do servidor MQTT                      |
+| `APP_SERVER_USERNAME` | Usuário MQTT                                   |
+| `APP_SERVER_PASSWORD` | Senha/API Key MQTT                             |
+| `PROVIDER`            | Provedor LoRaWAN                               |
+| `DATA_MODEL`          | Modelo de dados utilizado pelo IoT Agent       |
+
+> [!IMPORTANT]
+> **Nunca publique o arquivo `.env`.**
+>
+> O arquivo `.env.example` contém apenas a estrutura das variáveis e não deve conter credenciais reais.
 
 ---
 
-# 🧱 Iniciando o Projeto - Configuração TTN
+# 📡 Configuração da aplicação LoRaWAN no TTN
 
-Clone o repositório e gere as imagens necessárias localmente:
+No The Things Stack:
 
-```bash
-git clone https://github.com/pedromujica1/GUIA_MONITORAMENTO_DADOS_FIWARE-LORAWAN.git
-cd GUIA_MONITORAMENTO_DADOS_FIWARE-LORAWAN
-```
+1. Acesse **Applications**.
+2. Selecione sua aplicação.
+3. Acesse **End devices**.
+4. Selecione o dispositivo.
+5. Identifique:
 
-Inicie os Contêineres:
-```bash
-docker-compose -f docker/docker-compose.yml up
-```
-Abre outra janela no terminal e verifique se os containêrs estão inicializados:
-```bash
-docker ps
-```
-O resultado do comando deve ser algo similar ao abaixo:
-```
-CONTAINER ID   IMAGE                       COMMAND                  CREATED       STATUS                   PORTS                                                                                                NAMES
-80850d97c6d7   fiware/cygnus-ngsi:latest   "/cygnus-entrypoint.…"   3 weeks ago   Up 6 hours               0.0.0.0:5055->5055/tcp, [::]:5055->5055/tcp, 5050/tcp, 0.0.0.0:5080->5080/tcp, [::]:5080->5080/tcp   fiware-cygnus
-6061d69a1445   ioeari/iotagent-lora        "bin/iotagent-lora d…"   3 weeks ago   Up 6 hours               0.0.0.0:4041->4041/tcp, [::]:4041->4041/tcp                                                          docker-iotagent-lora-1
-e4c1d735ac1c   grafana/grafana             "/run.sh"                3 weeks ago   Up 6 hours               0.0.0.0:3003->3000/tcp, [::]:3003->3000/tcp                                                          docker-grafana-1
-ba0055dcf278   fiware/orion:3.3.1          "/usr/bin/contextBro…"   3 weeks ago   Up 6 hours (unhealthy)   0.0.0.0:1026->1026/tcp, [::]:1026->1026/tcp                                                          docker-orion-1
-5eed5bf34ca2   postgres:latest             "docker-entrypoint.s…"   3 weeks ago   Up 6 hours               0.0.0.0:5432->5432/tcp, [::]:5432->5432/tcp                                                          db-postgres
-d0fc0101c533   mongo:4.4                   "docker-entrypoint.s…"   3 weeks ago   Up 6 hours               0.0.0.0:27017->27017/tcp, [::]:27017->27017/tcp                                                      docker-mongodb-1
-```
+   * Device ID;
+   * AppEUI;
+   * DevEUI.
+  
+![Informações da aplicação no TTN](docs/ttn/ttn-data1.png)
 
-Caso deseje verificar e modificar o arquivo principal. A configuração de cada Contâiner pode ser encontrada neste arquivo [aqui](https://github.com/pedromujica1/GUIA_MONITORAMENTO_DADOS_FIWARE-LORAWAN/docker/docker-compose.yml)
+**Figura 2 — Informações da aplicação utilizadas na configuração do `.env`.**
 
-## Requisitos para a conexão entre o IoT Agent e Orion Context Broker - The Things Stack
-
-Para inscrever seu dispositivo da TTN e conectá-lo ao **Orion Context Broker (OrionCB)** via IoT Agent LoRaWAN, você precisará das seguintes informações:
-
-- `device_id`: Identificador único do dispositivo
-- `app_eui`: Identificador da aplicação no padrão EUI
-- `dev_eui`: Identificador único do dispositivo atribuído pela TTN
-- `application_id`: No formato `nome-da-aplicacao@ttn`
-- `application_key`: Chave de autenticação (API Key)
-
-Para facilitar o tutorial apresenta o arquivo .env_template para execução da requisição e facilidade
-
-### 🔧 Configuraando informações
-
-1. Copie o modelo de configuração:
-   ```bash
-   cp env_template .env
-   ```
-
-2. Edite o arquivo `.env` com suas credenciais:
-   ```bash
-   nano .env  # ou use seu editor de texto/código favorito
-   ```
-
-### ⚠️ Segurança
-
-- Nunca compartilhe seu arquivo `.env`
-- Adicione `.env` ao seu `.gitignore` 
- ```bash
-   echo ".env" >> .gitignore
-  ```
-
-
-
-## 📌 Localizando informações da Aplicação e do Dispositivo
-
-Acesse o menu lateral em **Applications → (sua aplicação) → End devices**, e selecione o dispositivo cadastrado. Em seguida, na tela de visão geral do dispositivo, você encontrará:
-
-- `End device ID` (equivale ao `device_id`)
-- `AppEUI` (Application EUI)
-- `DevEUI` (Device EUI)
-
-Veja na imagem abaixo onde encontrar esses dados:
-
-![Informações do dispositivo e EUI](/docs/img/ttn-data1.png)
+Essas informações devem ser utilizadas na configuração do projeto.
 
 ---
 
-## 🔗 Configuração do MQTT
+# 🔗 Configuração MQTT
 
-Para conectar o IoT Agent à plataforma TTN vamos utilizar o protocolo [MQTT](https://mqtt.org/), frequentemente utilizado para transporte de dados entre dispositivos IoT:
+Na aplicação TTN, acesse a seção de integração MQTT.
 
-1. No menu lateral, acesse:  
-   **Applications → (sua aplicação) → MQTT**
+Obtenha:
 
-2. Copie as seguintes informações:
-   - `Public address` (exemplo: `au1.cloud.thethings.network:1883`) – este é o **host**
-   - `Username` (exemplo: `envcity@ttn`)
-   - `Password` – **API Key** que pode ser gerada no próprio painel
-   - `application_id`: ID pode ser encontrado abaixo do nome `Envcity - Monitormaneto de Qualidade do Ar` , no formato `nome-da-aplicacao@ttn` como exemplo: `envcity-aqm@ttn` 
+* endereço do servidor MQTT;
+* usuário;
+* API Key.
 
-Veja a tela de onde extrair essas informações:
+Para o The Things Stack, o formato do usuário pode utilizar o identificador da aplicação e o tenant, por exemplo:
 
-![Credenciais MQTT da TTN](/docs/img/ttn-data2.png)
+```text
+minha-aplicacao@ttn
+```
 
-> ✅ Agora que você possui os dados da aplicação e do dispositivo, você está pronto para registrá-los no IoT Agent LoRaWAN e integrá-los ao Orion Context Broker.
----
+A documentação atual do The Things Stack recomenda gerar uma API Key específica para a aplicação e copiar a chave no momento de sua criação, pois ela não fica disponível posteriormente na interface.
 
-## 📤 Registro do Dispositivo no IoT Agent
-
-Com as informações coletadas da TTN (como `device_id`, `app_eui`, `dev_eui`, `application_id`, `application_key`, `host`, `username` e `password`), você pode registrar seu dispositivo no IoT Agent por meio de uma requisição HTTP `POST` como a seguir:
+Preencha:
 
 ```bash
-#!/bin/sh
-
-curl --location --request POST 'http://localhost:4041/iot/devices' \
---header 'fiware-service: openiot' \
---header 'fiware-servicepath: /airQuality' \
---header 'Content-Type: application/json' \
---data-raw '{
-    "devices": [
-        {
-            "device_id": "'"$DEVICE_ID"'",
-            "entity_name": "'"$ENTITY_NAME"'",
-            "entity_type": "'"$ENTITY_TYPE"'",
-            "attributes": [
-                { "object_id": "best_co", "name": "Best_CO", "type": "Float"},
-                { "object_id": "best_no2", "name": "Best_NO2", "type": "Float"},
-                { "object_id": "best_ox", "name": "Best_OX", "type": "Float"},
-                { "object_id": "best_so2", "name": "Best_SO2", "type": "Float"},
-                { "object_id": "co_1", "name": "CO_1", "type": "Float"},
-                { "object_id": "co_2", "name": "CO_2", "type": "Float"},
-                { "object_id": "co_3", "name": "CO_3", "type": "Float"},
-                { "object_id": "co_4", "name": "CO_4", "type": "Float"},
-                { "object_id": "co_ae", "name": "CO_AE", "type": "Float"},
-                { "object_id": "co_we", "name": "CO_WE", "type": "Float"},
-                { "object_id": "no2_1", "name": "NO2_1", "type": "Float"},
-                { "object_id": "no2_2", "name": "NO2_2", "type": "Float"},
-                { "object_id": "no2_3", "name": "NO2_3", "type": "Float"},
-                { "object_id": "no2_4", "name": "NO2_4", "type": "Float"},
-                { "object_id": "no2_ae", "name": "NO2_AE", "type": "Float"},
-                { "object_id": "no2_we", "name": "NO2_WE", "type": "Float"},
-                { "object_id": "ox_1", "name": "OX_1", "type": "Float"},
-                { "object_id": "ox_2", "name": "OX_2", "type": "Float"},
-                { "object_id": "ox_3", "name": "OX_3", "type": "Float"},
-                { "object_id": "ox_4", "name": "OX_4", "type": "Float"},
-                { "object_id": "ox_ae", "name": "OX_AE", "type": "Float"},
-                { "object_id": "ox_we", "name": "OX_WE", "type": "Float"},
-                { "object_id": "so2_1", "name": "SO2_1", "type": "Float"},
-                { "object_id": "so2_2", "name": "SO2_2", "type": "Float"},
-                { "object_id": "so2_3", "name": "SO2_3", "type": "Float"},
-                { "object_id": "so2_4", "name": "SO2_4", "type": "Float"},
-                { "object_id": "so2_ae", "name": "SO2_AE", "type": "Float"},
-                { "object_id": "so2_we", "name": "SO2_WE", "type": "Float"},
-                { "object_id": "Temperatura", "name": "Temperatura", "type": "Float"},
-                { "object_id": "Umidade", "name": "Umidade", "type": "Float"},
-                { "object_id": "data", "name": "DATA", "type": "Text"},
-                { "object_id": "hora", "name": "HORA", "type": "Text"}
-            ],
-            "internal_attributes": {
-                "lorawan": {
-                    "application_server": {
-                        "host": "'"$APP_SERVER_HOST"'",
-                        "username": "'"$APP_SERVER_USERNAME"'",
-                        "password": "'"$APP_SERVER_PASSWORD"'",
-                        "provider": "TTN"
-                    },
-                    "app_eui": "'"$APP_EUI"'",
-                    "dev_eui": "'"$DEV_EUI"'",
-                    "application_id": "'"$APPLICATION_ID"'",
-                    "application_key": "'"$APPLICATION_KEY"'",
-                    "data_model": "'"$DATA_MODEL"'"
-                }
-            }
-        }
-    ]
-}'
+APP_SERVER_HOST="..."
+APP_SERVER_USERNAME="..."
+APP_SERVER_PASSWORD="..."
 ```
-> ❗❗ No exemplo acima são utilizados os atibutos da estação de monitoramento de Qualidade do ar registrada como Envcity, contudo o usuário deve adaptar os atributos ao seu dispositivo IoT registrado na TTN.
-## 🚀 Execução
 
-Após preencher os dados no arquivo `.env`. Para registrar o dispositivo, execute o script acima ou o seguinte comando:
+![Informações do dispositivo no TTN](docs/ttn/ttn-data2.png)
+
+**Figura 3 — Informações do dispositivo utilizadas na configuração do `.env`.**
+
+---
+
+# 📤 Registro do dispositivo no IoT Agent
+
+Depois de configurar o `.env`, registre o dispositivo no IoT Agent.
+
+O projeto disponibiliza o script:
+
+```bash
+scripts/registerLoraDevice.sh
+```
+
+Execute:
+
 ```bash
 bash ./scripts/registerLoraDevice.sh
 ```
-- Caso não execute tente entrar no diretório executar o seguinte comando
+
+Se necessário:
+
 ```bash
-chmod +x registerLoraDevice.sh
-#Depois execute
-./registerLoraDevice.sh
+chmod +x ./scripts/registerLoraDevice.sh
 ```
+
+e:
+
+```bash
+./scripts/registerLoraDevice.sh
+```
+
+O registro associa:
+
+```text
+Dispositivo LoRaWAN
+        │
+        ▼
+   IoT Agent
+        │
+        ▼
+Entidade FIWARE
+        │
+        ▼
+Orion Context Broker
+```
+
+Os atributos registrados devem corresponder aos dados efetivamente enviados pelo dispositivo.
+
+> [!NOTE]
+> O conjunto de atributos apresentado no script de exemplo corresponde à estação de monitoramento utilizada neste projeto. Para outro dispositivo, adapte a lista de atributos conforme o payload e o modelo utilizado.
+
 ---
 
-# 📦 Configurando a persistência de dados - Cygnus/PostgresSQL
+# 🚀 Inicialização dos serviços
 
-O **Orion Context Broker** armazena apenas metadados no MongoDB. Para persistir os grandes volumes de dados dos sensores, usamos o conector *[Cygnus](https://fiware-cygnus.readthedocs.io/en/latest/)* para enviar esses dados ao *[PostgreSQL](https://www.postgresql.org/docs/ )* (banco relacional).
+A partir do diretório do projeto:
 
-## 🛠️ Etapas da Persistência
+```bash
+cd docker
+docker compose up -d
+```
 
-  -  🔔 Criar uma inscrição (subscription) no Orion CB para notificar o Cygnus sobre alterações nas entidades IoT.
+Verifique:
 
-  -  🗃️ O Cygnus armazena os dados recebidos no PostgreSQL, organizados por schema e tabelas.
+```bash
+docker compose ps
+```
 
+Também é possível verificar todos os contêineres:
 
-### 📩 1. Criar a Inscrição (Subscription)
+```bash
+docker ps
+```
 
-Enviamos uma requisição POST para o Orion CB, no endpoint /v2/subscriptions, para notificar o Cygnus.
+Para analisar logs:
 
-### 🔑 *Parâmetros-chave*:
+```bash
+docker compose logs --tail=100
+```
 
-  - `fiware-service` e `fiware-servicepath`: definem o serviço/caminho dos dados. **Atenção**: O caminho definido deve ser o mesmo configurado na requisição anterior.
+Para um serviço específico:
 
-  - `idPattern: ".*"` monitora todas entidades
+```bash
+docker compose logs --tail=100 iotagent-lora
+```
 
-  - `URL` aponta para CYGNUS_POSTGRESQL_SERVICE_PORT
+---
 
-  - `throttling` controla frequência de amostragem
+# 🔄 Fluxo dos dados
 
-#### 🧪 Exemplo de requisição:
+Após a configuração, o fluxo principal é:
 
-```console
+```text
+Sensor
+  │
+  ▼
+LoRaWAN
+  │
+  ▼
+The Things Stack
+  │
+  │ MQTT
+  ▼
+IoT Agent LoRaWAN
+  │
+  │ NGSI
+  ▼
+Orion Context Broker
+  │
+  ├──────────────► Cygnus
+  │                   │
+  │                   ▼
+  │               PostgreSQL
+  │                   │
+  │                   ▼
+  │                Grafana
+  │
+  └──────────────► IA opcional
+                      │
+                      ▼
+                  CO_Corrigido
+```
+
+O Orion é, portanto, o ponto central de distribuição dos dados de contexto.
+
+---
+
+# 📦 Persistência com Cygnus e PostgreSQL
+
+Para armazenar o histórico das informações, é necessário criar uma Subscription no Orion.
+
+Exemplo:
+
+```bash
 curl -iX POST \
   'http://localhost:1026/v2/subscriptions' \
   -H 'Content-Type: application/json' \
   -H 'fiware-service: openiot' \
-  -H 'fiware-servicepath: /<seu_caminho_fiware>' \
+  -H 'fiware-servicepath: /airQuality' \
   -d '{
-  "description": "Notify Cygnus Postgres of all context changes",
-  "subject": {
-    "entities": [
-      {
-        "idPattern": ".*"
+    "description": "Notify Cygnus Postgres of context changes",
+    "subject": {
+      "entities": [
+        {
+          "idPattern": ".*"
+        }
+      ]
+    },
+    "notification": {
+      "http": {
+        "url": "http://cygnus:5055/notify"
       }
-    ]
-  },
-  "notification": {
-    "http": {
-      "url": "http://cygnus:5055/notify"
-    }
-  },
-  "throttling": 5
-}'
+    },
+    "throttling": 5
+  }'
 ```
-### 🚀 🧰 Execução via Script bash
 
-Para excutar o script acima, execute o seguinte comando:
+Para formatar uma resposta JSON:
+
+```bash
+curl ... | jq
+```
+
+O projeto também disponibiliza:
+
 ```bash
 bash ./scripts/CygnusSubscription.sh
 ```
----
-### 🔍 Verificar inscrições ativas
+
+Para verificar as inscrições:
 
 ```bash
 bash ./scripts/SubscriptionVerification.sh
 ```
 
-## PostgreSQL: Leitura de Dados
+---
 
-### 🧑‍💻 Acessar o banco via terminal
+# 🐘 PostgreSQL
+
+Entre no PostgreSQL:
 
 ```bash
 docker exec -it db-postgres psql -U postgres -d postgres
 ```
-### 📋 Ver banco de dados disponíveis
-```console
+
+Liste os bancos:
+
+```sql
 \list
 ```
-🔎 Espera-se algo como:
-```console
-                                                    List of databases
-   Name    |  Owner   | Encoding | Locale Provider |  Collate   |   Ctype    | Locale | ICU Rules |   Access privileges   
------------+----------+----------+-----------------+------------+------------+--------+-----------+-----------------------
- postgres  | postgres | UTF8     | libc            | en_US.utf8 | en_US.utf8 |        |           | 
- template0 | postgres | UTF8     | libc            | en_US.utf8 | en_US.utf8 |        |           | =c/postgres          +
-           |          |          |                 |            |            |        |           | postgres=CTc/postgres
- template1 | postgres | UTF8     | libc            | en_US.utf8 | en_US.utf8 |        |           | =c/postgres          +
-           |          |          |                 |            |            |        |           | postgres=CTc/postgres
-(3 rows)
-```
-🧭 Listar schemas
-```console
+
+Liste os schemas:
+
+```sql
 \dn
 ```
-Resultado:
-```console
-       List of schemas
-  Name   |       Owner       
----------+-------------------
- openiot | postgres
- public  | pg_database_owner
-(2 rows)
-```
-### 📚 Listar tabelas no schema `openiot`
+
+Liste as tabelas do schema `openiot`:
+
 ```sql
 SELECT table_schema, table_name
 FROM information_schema.tables
 WHERE table_schema = 'openiot'
 ORDER BY table_schema, table_name;
 ```
-Exemplo:
-```console
- table_schema |            table_name            
---------------+----------------------------------
- openiot      | airquality_sensorcvel_loradevice
-(1 row)
-```
-### 🔎 Consultar dados da tabela
-```sql
-SELECT * FROM openiot.airquality_sensorcvel_loradevice LIMIT 10;
-```
-Resultado (exemplo):
-```console
-  recvtimets   |        recvtime         | fiwareservicepath |  entityid  | entitytype |  attrname   | attrtype | attrvalue | attrmd 
----------------+-------------------------+-------------------+------------+------------+-------------+----------+-----------+--------
- 1747092312862 | 2025-05-12 23:25:12.862 | /airQuality       | SensorCvel | LoraDevice | CO_2        | Float    | null      | []
- 1747092312862 | 2025-05-12 23:25:12.862 | /airQuality       | SensorCvel | LoraDevice | CO_1        | Float    | null      | []
- 1747092312862 | 2025-05-12 23:25:12.862 | /airQuality       | SensorCvel | LoraDevice | CO_AE       | Float    | null      | []
- 1747092312862 | 2025-05-12 23:25:12.862 | /airQuality       | SensorCvel | LoraDevice | SO2_WE      | Float    | null      | []
- 1747092312862 | 2025-05-12 23:25:12.862 | /airQuality       | SensorCvel | LoraDevice | Temperatura | Float    | null      | []
- 1747092312862 | 2025-05-12 23:25:12.862 | /airQuality       | SensorCvel | LoraDevice | Umidade     | Float    | null      | []
- 1747092312862 | 2025-05-12 23:25:12.862 | /airQuality       | SensorCvel | LoraDevice | CO_WE       | Float    | null      | []
- 1747092312862 | 2025-05-12 23:25:12.862 | /airQuality       | SensorCvel | LoraDevice | HORA        | Text     | null      | []
- 1747092312862 | 2025-05-12 23:25:12.862 | /airQuality       | SensorCvel | LoraDevice | NO2_AE      | Float    | null      | []
- 1747092312862 | 2025-05-12 23:25:12.862 | /airQuality       | SensorCvel | LoraDevice | OX_WE       | Float    | null      | []
-```
 
-### 🔎 Filtrar por atributo específico
-Consulta:
+Exemplo de consulta:
 
 ```sql
-SELECT recvtime, attrvalue FROM openiot.airquality_sensorcvel_loradevice WHERE attrname = 'count' LIMIT 10;
-```
-Resultado:
-```console
- recvtime | attrvalue 
-----------+-----------
-(0 rows)
+SELECT *
+FROM openiot.airquality_sensorcvel_loradevice
+LIMIT 10;
 ```
 
-Para sair do cliente Postgres e retornar ao terminal, use:
+Para consultar determinado atributo:
+
+```sql
+SELECT recvtime, attrvalue
+FROM openiot.airquality_sensorcvel_loradevice
+WHERE attrname = 'Best_CO'
+ORDER BY recvtime DESC
+LIMIT 10;
+```
+
+Para sair:
+
 ```sql
 \q
 ```
 
-# 📊 Grafana - Visualização de dados persistidos
-
-> [!NOTE]
-> 
-> Passar o nome de usuário e senha em variáveis de ambiente de texto simples como esta é um risco de segurança. Embora isso seja
-> uma prática aceitável em um tutorial, para um ambiente de produção, você pode evitar esse risco aplicando
-> [Docker Secrets](https://blog.docker.com/2017/02/docker-secrets-management/)
 ---
 
-## 🌐 Acesso ao Grafana
+# 📊 Grafana — Visualização dos dados
 
-Como a a aplicação executa o [Grafana](https://grafana.com/) via Docker, o contêiner é configurado com a porta 3003 mapeada localmente. Acesse pelo navegador:
+O Grafana é disponibilizado pelo Docker.
 
-```
+Acesse:
+
+```text
 http://localhost:3003
 ```
 
-As credenciais padrão são geralmente:
-
-- **Username:** `admin`
-- **Password:** `admin` (você pode ser solicitado a alterar no primeiro login)
+A configuração inicial depende das credenciais definidas no ambiente.
 
 ---
 
-## Adicionando uma Fonte de Dados PostgreSQL
+## 🔌 Configurando o PostgreSQL no Grafana
 
-1. No menu lateral esquerdo do Grafana, Vá em ⚙️ **"Configuration"**  > **Data Sources**.
-2. Clique em **"Add data source"**.
-3. Escolha **PostgreSQL**.
-4. Preencha os campos conforme abaixo:
+No Grafana:
 
-### 📥 Preencha os campos:
+**Connections → Data Sources → Add data source → PostgreSQL**
 
-- **Host URL:** `postgres-db:5432`
-- **Database name:** `postgres`
-- **Username:** `postgres`
-- **Password:** (senha configurada no seu `docker-compose.yml` que é password)
-- **TLS/SSL Mode:** `disable`
+Utilize, conforme a configuração do Compose:
 
-1. 🔁 Clique em Save & Test
+```text
+Host: postgres-db:5432
+Database: postgres
+User: postgres
+Password: <senha configurada>
+TLS/SSL Mode: disable
+```
+
+Clique em:
+
+```text
+Save & Test
+```
 
 ---
 
-## Criando um Dashboard com Consulta SQL
+## 📈 Criando um painel
 
-1. No menu lateral, clique em ➕ **"Create" > "Dashboard"**.
-2. Clique em **"Add new panel"**.
-3. No editor de consultas, selecione a fonte de dados PostgreSQL criada.
-4. No modo SQL, insira a seguinte consulta:
+Crie um dashboard:
+
+**Dashboards → New → Add visualization**
+
+Selecione a fonte PostgreSQL.
+
+Exemplo de consulta:
 
 ```sql
 SELECT
     recvtime::timestamp AS "time",
-    NULLIF(attrvalue, 'null')::float AS "SO2"
+    NULLIF(attrvalue, 'null')::float AS "CO"
 FROM
     openiot.airquality_sensorcvel_loradevice
 WHERE
-    attrname = 'Best_SO2'
+    attrname = 'Best_CO'
 ORDER BY
     "time" ASC;
 ```
 
-5. Clique em **Run query** para visualizar os dados.
-6. Configure o tipo de gráfico desejado (ex: linha, barras).
-7. Clique em **Apply** para salvar o painel no dashboard.
-8. Seus dados de seu dispostivo IoT devem aparecer no novo Grafana Dashboard!
+O mesmo princípio pode ser aplicado aos demais atributos.
 
-### Atenção!
-- Certifique-se de que o container do Grafana esteja na mesma **rede Docker** que o container do PostgreSQL (`fiware_default`, por exemplo).
-- Em caso de erros, verifique os logs dos containers com:
-```bash
-docker logs <nome-do-container>
+---
+
+# 🤖 Módulo Opcional de Inteligência Artificial
+
+> [!IMPORTANT]
+> **Esta seção é opcional.**
+>
+> A integração FIWARE + LoRaWAN pode funcionar normalmente sem instalar ou executar o módulo de IA.
+>
+> O módulo deve ser implementado somente quando houver necessidade de realizar processamento adicional dos dados utilizando Machine Learning.
+
+---
+
+## 🎯 Objetivo
+
+O módulo de IA foi desenvolvido para utilizar os dados disponibilizados pelo Orion Context Broker e gerar uma estimativa adicional denominada:
+
+```text
+CO_Corrigido
 ```
----
 
-## 🧠 Considerações Finais
+O módulo utiliza um modelo de **Random Forest Regressor** treinado previamente.
 
-Este tutorial apresentou uma configuração completa para **persistência de dados de sensores IoT com FIWARE**, utilizando:
-
-- 🔗 *Orion Context Broker* para gerenciamento de contexto
-- 📤 *Cygnus* como conector de dados
-- 🐘 *PostgreSQL* como banco de dados relacional
-- 📊 *Grafana* para visualização de dados históricos
-
-Mas isso é só o começo! O ecossistema FIWARE é **flexível, open-source e extensível**, permitindo integração com várias outras tecnologias e bancos de dados, como:
-
-- **MySQL**
-- **MongoDB**
-- **CKAN**
-- **HDFS**
-- **Amazon S3**
-- **ElasticSearch**
-- ... e muito mais!
-
-### 📚 Referências Recomendadas
-
-Explore configurações alternativas, exemplos avançados e ferramentas complementares nos links abaixo:
-
-- 🔎 [FIWARE - Persisting Context Data with Apache Flume (Postman Collection)](https://www.postman.com/fiware/fiware-foundation-ev-s-public-workspace/collection/8yxw6rx/fiware-persisting-context-data-apache-flume)
-- 🧪 [FIWARE Public Workspace no Postman (com várias coleções de testes)](https://www.postman.com/fiware/fiware-foundation-ev-s-public-workspace/overview)
-- 📖 [FIWARE Tutorials (ReadTheDocs)](https://fiware-tutorials.readthedocs.io/en/latest/)
-
-Essas fontes são excelentes para:
-
-- 📦 Testar componentes FIWARE via API com o Postman
-- 🧰 Aprender como usar diferentes bancos de dados com Cygnus e outros conectores
-- 🚀 Explorar o universo Open Source FIWARE e suas aplicações em Cidades Inteligentes, Indústria 4.0, Energia, Saúde e mais
+A API recebe uma notificação do Orion, extrai os atributos necessários, executa o modelo e atualiza novamente a entidade no Orion.
 
 ---
 
-## 🤝 Comunidade e Colaboração
+# 🏗️ Arquitetura da IA
 
-Se você tiver dúvidas, sugestões ou encontrar erros:
+A integração opcional adiciona o seguinte fluxo:
 
-- 💬 Abra uma *issue* nos repositórios oficiais do [FIWARE no GitHub](https://github.com/FIWARE)
-- 🔧 Contribua com *pull requests*, melhorando a documentação, corrigindo bugs ou adicionando novos tutoriais
-- 🤝 Participe da comunidade FIWARE: Slack, Stack Overflow e fóruns abertos
+```text
+                    Orion Context Broker
+                           │
+                           │ Subscription
+                           ▼
+                    ┌───────────────┐
+                    │    ml-api     │
+                    │    FastAPI    │
+                    └───────┬───────┘
+                            │
+                            ▼
+                    RandomForestRegressor
+                            │
+                            ▼
+                       CO_Corrigido
+                            │
+                            │ PATCH
+                            ▼
+                    Orion Context Broker
+```
 
-FIWARE é um projeto **aberto e colaborativo** — todos são bem-vindos para contribuir!
+O Orion continua sendo o responsável pelo gerenciamento da entidade.
+
+A API de IA apenas processa a informação e devolve o resultado ao Orion.
 
 ---
 
-🚀 **Bons testes e boas medições com seus sensores IoT!** 🌍🌱
+# 📁 Estrutura do módulo
 
+O módulo encontra-se no diretório:
+
+```text
+ml/
+├── Dockerfile
+├── docker.sh
+├── requirements.txt
+├── RF_Regressor.joblib
+└── app/
+    ├── main.py
+    ├── model-ml.py
+    ├── Air_Quality_Analysis_IAG_and_Envcity_Data.py
+    ├── NotebookMatheus2023.ipynb
+    ├── RF_Regressor.joblib
+    └── envcity_df_sp_dataset_2023.csv
+```
+
+### Componentes principais
+
+| Arquivo                          | Função                                   |
+| -------------------------------- | ---------------------------------------- |
+| `Dockerfile`                     | Define a imagem Docker da API            |
+| `requirements.txt`               | Dependências Python                      |
+| `main.py`                        | API FastAPI e integração com Orion       |
+| `RF_Regressor.joblib`            | Modelo treinado                          |
+| `model-ml.py`                    | Processo relacionado ao treinamento      |
+| `NotebookMatheus2023.ipynb`      | Análise e desenvolvimento do modelo      |
+| `envcity_df_sp_dataset_2023.csv` | Dataset utilizado no treinamento/análise |
+
+---
+
+# 🧠 Modelo de Machine Learning
+
+O modelo utilizado atualmente é:
+
+```text
+RandomForestRegressor
+```
+
+As variáveis utilizadas na entrada do modelo são:
+
+```text
+e2sp_co
+e2sp_co_we
+e2sp_co_ae
+e2sp_temp
+pin_umid
+```
+
+Correspondência conceitual:
+
+| Entrada      | Origem        |
+| ------------ | ------------- |
+| `e2sp_co`    | `Best_CO`     |
+| `e2sp_co_we` | `CO_WE`       |
+| `e2sp_co_ae` | `CO_AE`       |
+| `e2sp_temp`  | `Temperatura` |
+| `pin_umid`   | `Umidade`     |
+
+O modelo retorna:
+
+```text
+CO_Corrigido
+```
+
+---
+
+# 🐳 Construção da imagem Docker
+
+O módulo possui seu próprio `Dockerfile`.
+
+Entre no diretório:
+
+```bash
+cd ml
+```
+
+Construa a imagem:
+
+```bash
+docker build -t ml-api .
+```
+
+Para uma reconstrução completa:
+
+```bash
+docker build --no-cache -t ml-api .
+```
+
+O `Dockerfile` instala as dependências e copia o modelo e o código da aplicação.
+
+A aplicação é executada com:
+
+```text
+uvicorn app.main:app
+```
+
+na porta:
+
+```text
+8000
+```
+
+---
+
+# 🚀 Inicialização do serviço de IA
+
+O `docker-compose.yml` possui um serviço específico para a API de Machine Learning.
+
+A imagem utilizada atualmente é:
+
+```yaml
+image: ml-api
+```
+
+Depois de construir a imagem:
+
+```bash
+cd docker
+docker compose up -d ml-api
+```
+
+Verifique:
+
+```bash
+docker compose ps
+```
+
+Para consultar os logs:
+
+```bash
+docker logs ml-api
+```
+
+ou, dependendo do nome atribuído pelo Compose:
+
+```bash
+docker compose logs --tail=100 ml-api
+```
+
+---
+
+# 🔎 Verificação da API
+
+A API FastAPI disponibiliza documentação automática.
+
+Acesse:
+
+```text
+http://localhost:8000/docs
+```
+
+Também é possível verificar os endpoints publicados:
+
+```bash
+curl -s http://localhost:8000/openapi.json | jq
+```
+
+Entre os endpoints disponíveis estão:
+
+```text
+/
+ /notifyCO
+ /orion/entities
+ /orion/status
+ /orion/subscribe
+ /prediction
+```
+
+---
+
+# 🔔 Subscription do Orion para a IA
+
+A API de IA não precisa consultar o Orion continuamente.
+
+Em vez disso, utiliza uma **Subscription**.
+
+O Orion envia uma notificação para:
+
+```text
+http://ml-api:8000/notifyCO
+```
+
+A Subscription deve monitorar os atributos necessários ao modelo:
+
+```text
+Best_CO
+CO_WE
+CO_AE
+Temperatura
+Umidade
+```
+
+Um exemplo conceitual:
+
+```json
+{
+  "description": "Subscribe to LoraDevice updates",
+  "subject": {
+    "entities": [
+      {
+        "idPattern": ".*",
+        "type": "LoraDevice"
+      }
+    ]
+  },
+  "notification": {
+    "http": {
+      "url": "http://ml-api:8000/notifyCO",
+      "attrs": [
+        "Best_CO",
+        "CO_WE",
+        "CO_AE",
+        "Temperatura",
+        "Umidade"
+      ]
+    }
+  },
+  "throttling": 0
+}
+```
+
+> [!NOTE]
+> A configuração exata da entidade e do `fiware-servicepath` deve corresponder à configuração utilizada pelo seu dispositivo.
+
+---
+
+# 🔄 Fluxo de processamento da IA
+
+Quando o Orion recebe uma alteração em um dos atributos monitorados:
+
+```text
+Best_CO
+CO_WE
+CO_AE
+Temperatura
+Umidade
+```
+
+a Subscription envia uma notificação para:
+
+```text
+POST /notifyCO
+```
+
+A API:
+
+1. recebe a notificação;
+2. identifica a entidade;
+3. extrai os cinco atributos;
+4. monta o vetor de entrada;
+5. executa o Random Forest;
+6. obtém `CO_Corrigido`;
+7. atualiza a entidade no Orion.
+
+Conceitualmente:
+
+```text
+Notificação Orion
+       │
+       ▼
+   /notifyCO
+       │
+       ▼
+Extração dos atributos
+       │
+       ▼
+DataFrame
+       │
+       ▼
+RandomForestRegressor
+       │
+       ▼
+CO_Corrigido
+       │
+       ▼
+PATCH /v2/entities/<id>/attrs
+       │
+       ▼
+Orion
+```
+
+---
+
+# 🧪 Testando a IA
+
+Depois que o serviço estiver funcionando, pode-se alterar um atributo monitorado da entidade.
+
+Por exemplo:
+
+```bash
+curl -iX PATCH \
+  'http://localhost:1026/v2/entities/sensores-novos/attrs' \
+  -H 'Content-Type: application/json' \
+  -H 'fiware-service: openiot' \
+  -H 'fiware-servicepath: /airQuality' \
+  -d '{
+    "Best_CO": {
+      "type": "Number",
+      "value": 60
+    }
+  }'
+```
+
+Depois consulte a entidade:
+
+```bash
+curl -s \
+  'http://localhost:1026/v2/entities/sensores-novos' \
+  -H 'fiware-service: openiot' \
+  -H 'fiware-servicepath: /airQuality' | jq
+```
+
+O resultado esperado é a presença do atributo:
+
+```json
+"CO_Corrigido": {
+  "type": "Number",
+  "value": 2.515522
+}
+```
+
+O valor exato depende dos dados utilizados pelo modelo.
+
+---
+
+# 🔁 Evitando loop de notificações
+
+O atributo:
+
+```text
+CO_Corrigido
+```
+
+não deve fazer parte da condição da Subscription utilizada para disparar a IA.
+
+O fluxo correto é:
+
+```text
+Best_CO
+CO_WE
+CO_AE
+Temperatura
+Umidade
+       │
+       ▼
+      IA
+       │
+       ▼
+CO_Corrigido
+```
+
+e não:
+
+```text
+CO_Corrigido
+       │
+       ▼
+      IA
+       │
+       ▼
+CO_Corrigido
+       │
+       ▼
+      ...
+```
+
+Essa separação evita que a própria saída do modelo gere novas execuções desnecessárias.
+
+---
+
+# 🧩 IA como componente opcional
+
+A arquitetura permite utilizar o projeto em diferentes níveis.
+
+### Nível 1 — Integração básica
+
+```text
+LoRaWAN
+   ↓
+TTN
+   ↓
+IoT Agent
+   ↓
+Orion
+```
+
+### Nível 2 — Persistência
+
+```text
+LoRaWAN
+   ↓
+TTN
+   ↓
+IoT Agent
+   ↓
+Orion
+   ↓
+Cygnus
+   ↓
+PostgreSQL
+```
+
+### Nível 3 — Visualização
+
+```text
+PostgreSQL
+     ↓
+  Grafana
+```
+
+### Nível 4 — Inteligência Artificial
+
+```text
+Orion
+  ↓
+ML API
+  ↓
+Random Forest
+  ↓
+CO_Corrigido
+  ↓
+Orion
+```
+
+Dessa forma, o usuário pode implementar somente os componentes necessários ao seu projeto.
+
+---
+
+# 🧪 Verificação e diagnóstico
+
+## Verificar os contêineres
+
+```bash
+docker ps
+```
+
+ou:
+
+```bash
+docker compose ps
+```
+
+## Ver logs
+
+```bash
+docker compose logs --tail=100
+```
+
+## Logs do IoT Agent
+
+```bash
+docker compose logs --tail=100 iotagent-lora
+```
+
+## Logs do Orion
+
+```bash
+docker compose logs --tail=100 orion
+```
+
+## Logs do Cygnus
+
+```bash
+docker compose logs --tail=100 cygnus
+```
+
+## Logs da IA
+
+```bash
+docker compose logs --tail=100 ml-api
+```
+
+---
+
+# 🔎 Consultando uma entidade no Orion
+
+Exemplo:
+
+```bash
+curl -s \
+  'http://localhost:1026/v2/entities/sensores-novos' \
+  -H 'fiware-service: openiot' \
+  -H 'fiware-servicepath: /airQuality' | jq
+```
+
+Para consultar todas:
+
+```bash
+curl -s \
+  'http://localhost:1026/v2/entities' \
+  -H 'fiware-service: openiot' \
+  -H 'fiware-servicepath: /airQuality' | jq
+```
+
+---
+
+# 🔔 Consultando as Subscriptions
+
+```bash
+curl -s \
+  'http://localhost:1026/v2/subscriptions' \
+  -H 'fiware-service: openiot' \
+  -H 'fiware-servicepath: /airQuality' | jq
+```
+
+Essa consulta permite verificar se as inscrições do Cygnus e da IA estão ativas.
+
+---
+
+# 🔒 Segurança
+
+As credenciais do TTN não devem ser armazenadas diretamente no código.
+
+Utilize:
+
+```text
+.env
+```
+
+para informações sensíveis.
+
+O arquivo:
+
+```text
+.env.example
+```
+
+deve conter somente os nomes das variáveis e valores de exemplo vazios.
+
+Nunca publique:
+
+* API Keys;
+* senhas MQTT;
+* tokens;
+* credenciais do banco;
+* credenciais do Grafana;
+* chaves de dispositivos.
+
+> [!WARNING]
+> Uma API Key do The Things Stack deve ser tratada como uma credencial. Crie chaves com somente as permissões necessárias ao serviço que irá utilizá-las.
+
+---
+
+# 📌 Observações sobre o módulo de IA
+
+O módulo de Machine Learning deste projeto possui três responsabilidades principais:
+
+```text
+1. Receber dados do Orion
+2. Executar o modelo
+3. Atualizar o Orion
+```
+
+Ele **não substitui**:
+
+* o IoT Agent;
+* o Orion;
+* o Cygnus;
+* o PostgreSQL;
+* o Grafana.
+
+Também não é necessário instalar o módulo de IA para utilizar o restante da arquitetura.
+
+Sua adoção depende do objetivo da aplicação.
+
+---
+
+# 🧠 Considerações finais
+
+Este projeto demonstra uma arquitetura modular para aplicações IoT utilizando:
+
+* **LoRaWAN** para comunicação com os dispositivos;
+* **The Things Stack** para gerenciamento da aplicação LoRaWAN;
+* **IoT Agent LoRaWAN** para integração com FIWARE;
+* **Orion Context Broker** para gerenciamento de contexto;
+* **MongoDB** para armazenamento interno dos componentes FIWARE;
+* **Cygnus** para persistência;
+* **PostgreSQL** para armazenamento histórico;
+* **Grafana** para visualização;
+* **FastAPI + Random Forest** para processamento inteligente opcional.
+
+A principal característica da arquitetura é sua modularidade.
+
+O fluxo fundamental permanece:
+
+```text
+Dispositivo
+    ↓
+LoRaWAN
+    ↓
+TTN
+    ↓
+IoT Agent
+    ↓
+Orion
+```
+
+A partir do Orion, outros serviços podem ser adicionados conforme a necessidade:
+
+```text
+                  ┌──► Cygnus ──► PostgreSQL ──► Grafana
+                  │
+Dispositivo ──► Orion
+                  │
+                  └──► IA ──► CO_Corrigido
+```
+
+Assim, a Inteligência Artificial é tratada como uma **extensão da arquitetura**, e não como requisito para a integração FIWARE + LoRaWAN.
+
+---
+
+# 📚 Referências
+
+* [FIWARE](https://www.fiware.org/)
+* [FIWARE Orion Context Broker](https://fiware-orion.readthedocs.io/)
+* [FIWARE IoT Agent LoRaWAN](https://fiware-lorawan.readthedocs.io/)
+* [The Things Stack](https://www.thethingsindustries.com/)
+* [Docker](https://www.docker.com/)
+* [PostgreSQL](https://www.postgresql.org/)
+* [Grafana](https://grafana.com/)
+* [FastAPI](https://fastapi.tiangolo.com/)
+* [Scikit-learn](https://scikit-learn.org/)
+
+---
+
+## 🤝 Comunidade e colaboração
+
+Caso encontre problemas ou tenha sugestões:
+
+* abra uma Issue no repositório;
+* proponha melhorias por Pull Request;
+* consulte a documentação oficial dos componentes utilizados;
+* contribua com exemplos e melhorias para a documentação.
+
+Este projeto foi desenvolvido como parte de atividades de pesquisa e desenvolvimento relacionadas à integração de tecnologias IoT, FIWARE, LoRaWAN e Inteligência Artificial.
