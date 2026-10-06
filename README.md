@@ -340,7 +340,7 @@ No The Things Stack:
    * AppEUI;
    * DevEUI.
   
-![Informações da aplicação no TTN](docs/img/ttn-data1.jpeg)
+![Informações da aplicação no TTN](docs/img/ttn-data1.png)
 
 **Figura 2 — Informações da aplicação utilizadas na configuração do `.env`.**
 
@@ -374,7 +374,7 @@ APP_SERVER_USERNAME="..."
 APP_SERVER_PASSWORD="..."
 ```
 
-![Informações do dispositivo no TTN](docs/img/ttn-data2.jpeg)
+![Informações do dispositivo no TTN](docs/img/ttn-data2.png)
 
 **Figura 3 — Informações do dispositivo utilizadas na configuração do `.env`.**
 
