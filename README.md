@@ -94,8 +94,9 @@ A partir desse ponto, diferentes componentes podem consumir os dados, como:
 
 A arquitetura principal pode ser representada da seguinte forma:
 
+![Arquitetura da integração FIWARE + LoRaWAN](docs/Diagrama_ic.png)
 
-
+**Figura 1 — Arquitetura geral da integração FIWARE + LoRaWAN.**
 
 O módulo de IA não interfere no caminho principal dos dados.
 
@@ -339,7 +340,7 @@ No The Things Stack:
    * AppEUI;
    * DevEUI.
   
-![Informações da aplicação no TTN](docs/ttn/ttn-data1.jpeg)
+![Informações da aplicação no TTN](docs/ttn-data1.jpeg)
 
 **Figura 2 — Informações da aplicação utilizadas na configuração do `.env`.**
 
@@ -373,7 +374,7 @@ APP_SERVER_USERNAME="..."
 APP_SERVER_PASSWORD="..."
 ```
 
-![Informações do dispositivo no TTN](docs/ttn/ttn-data2.jpeg)
+![Informações do dispositivo no TTN](docs/ttn-data2.jpeg)
 
 **Figura 3 — Informações do dispositivo utilizadas na configuração do `.env`.**
 
